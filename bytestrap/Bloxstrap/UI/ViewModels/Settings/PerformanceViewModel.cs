@@ -468,26 +468,6 @@ namespace Bloxstrap.UI.ViewModels.Settings
         }
 
         // ═══════════════════════════════════
-        //  Telemetry & Privacy
-        // ═══════════════════════════════════
-
-        public bool DisableTelemetry
-        {
-            get => App.FastFlags.GetPreset("Performance.DisableTelemetry") == "True";
-            set
-            {
-                string? val = value ? "True" : null;
-                App.FastFlags.SetPreset("Performance.DisableTelemetry", val);
-                App.FastFlags.SetPreset("Performance.DisableTelemetry2", val);
-                App.FastFlags.SetPreset("Performance.DisableTelemetry3", val);
-                App.FastFlags.SetPreset("Performance.DisableTelemetry4", val);
-                App.FastFlags.SetPreset("Performance.DisableTelemetry5", val);
-                App.FastFlags.SetPreset("Performance.DisableTelemetry6", val);
-                App.FastFlags.SetPreset("Performance.DisableTelemetry7", val);
-            }
-        }
-
-        // ═══════════════════════════════════
         //  Memory & Assets
         // ═══════════════════════════════════
 
@@ -519,14 +499,99 @@ namespace Bloxstrap.UI.ViewModels.Settings
         }
 
         // ═══════════════════════════════════
-        //  Bypass Mode
+        //  Quick Presets
         // ═══════════════════════════════════
 
-        public bool BypassMode
+        public ICommand PresetMaxFPSCommand => new RelayCommand(() =>
         {
-            get => App.Settings.Prop.UseBypassFlagMethod;
-            set => App.Settings.Prop.UseBypassFlagMethod = value;
-        }
+            // Unlock FPS to max, lower visuals for performance
+            TargetFPS = 9999;
+            OnPropertyChanged(nameof(FPSUnlocked));
+            OnPropertyChanged(nameof(TargetFPS));
+
+            TextureQualityOverrideEnabled = true;
+            TextureQualityLevel = 0;
+
+            DisableShadows = true;
+            OnPropertyChanged(nameof(DisableShadows));
+
+            ForceLowLighting = true;
+            OnPropertyChanged(nameof(ForceLowLighting));
+
+            DisablePostFX = true;
+            OnPropertyChanged(nameof(DisablePostFX));
+
+            DisableGrass = true;
+            OnPropertyChanged(nameof(DisableGrass));
+
+            ParticleCapEnabled = true;
+            ParticleCap = 50;
+
+            FRMOverrideEnabled = true;
+            FRMQualityLevel = 1;
+
+            RenderThrottleEnabled = true;
+            RenderThrottle = 50;
+
+            RequestPageReloadEvent?.Invoke(this, EventArgs.Empty);
+        });
+
+        public ICommand PresetLowPingCommand => new RelayCommand(() =>
+        {
+            // Optimize network settings for lowest latency
+            NetworkTuningEnabled = true;
+            MTUSize = 900;
+            SendRate = 4500;
+            SendBandwidth = 8192;
+            RecvBandwidth = 8192;
+
+            PhysicsTuningEnabled = true;
+            PhysicsSendRate = 120;
+            HeartbeatMs = 0;
+
+            NetworkPrediction = true;
+            OnPropertyChanged(nameof(NetworkPrediction));
+
+            RequestPageReloadEvent?.Invoke(this, EventArgs.Empty);
+        });
+
+        public ICommand PresetMaxGraphicsCommand => new RelayCommand(() =>
+        {
+            // Max visual quality settings
+            TextureQualityOverrideEnabled = true;
+            TextureQualityLevel = 3;
+
+            FRMOverrideEnabled = true;
+            FRMQualityLevel = 10;
+
+            MeshLODEnabled = true;
+            MeshLODDistance = 1000;
+
+            DisableShadows = false;
+            OnPropertyChanged(nameof(DisableShadows));
+
+            ShadowQualityEnabled = true;
+            ShadowQuality = 10;
+
+            ForceLowLighting = false;
+            OnPropertyChanged(nameof(ForceLowLighting));
+
+            DisablePostFX = false;
+            OnPropertyChanged(nameof(DisablePostFX));
+
+            DisableGrass = false;
+            OnPropertyChanged(nameof(DisableGrass));
+
+            DisableTerrain = false;
+            OnPropertyChanged(nameof(DisableTerrain));
+
+            ParticleCapEnabled = true;
+            ParticleCap = 1000;
+
+            SelectedMSAA = 4;
+
+            RequestPageReloadEvent?.Invoke(this, EventArgs.Empty);
+        });
 
         // ═══════════════════════════════════
         //  Reset

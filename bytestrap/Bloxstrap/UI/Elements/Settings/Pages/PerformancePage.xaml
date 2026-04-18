@@ -84,9 +84,53 @@
         <TextBlock Margin="0,0,0,16" Text="{Binding PingResult}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
         <!-- ═══════════════════════════════════ -->
-        <!--  RENDERING ENGINE                   -->
+        <!--  QUICK PRESETS                      -->
         <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Rendering" FontSize="20" FontWeight="Medium" Margin="0,0,0,0" />
+        <TextBlock Text="Quick Presets" FontSize="20" FontWeight="Medium" Margin="0,0,0,4" />
+        <TextBlock Margin="0,0,0,8" Text="Apply a full preset config with one click. This will override related settings below." FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+        <Grid Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Max FPS Preset -->
+            <Border Grid.Column="0" Margin="0,0,6,0" Padding="16" CornerRadius="8" Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="⚡" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,6" />
+                    <TextBlock Text="Max FPS" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Unlock FPS, lower visuals, disable shadows &amp; effects for maximum framerate." FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,4,0,8" />
+                    <ui:Button Content="Apply" Appearance="Primary" HorizontalAlignment="Stretch" Command="{Binding PresetMaxFPSCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Low Ping Preset -->
+            <Border Grid.Column="1" Margin="3,0,3,0" Padding="16" CornerRadius="8" Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="📡" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,6" />
+                    <TextBlock Text="Low Ping" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Optimize network tuning, physics rate, and prediction for the lowest latency." FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,4,0,8" />
+                    <ui:Button Content="Apply" Appearance="Success" HorizontalAlignment="Stretch" Command="{Binding PresetLowPingCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Max Graphics Preset -->
+            <Border Grid.Column="2" Margin="6,0,0,0" Padding="16" CornerRadius="8" Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="🎨" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,6" />
+                    <TextBlock Text="Max Graphics" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Highest textures, shadows, particles, MSAA, and mesh detail for best visuals." FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,4,0,8" />
+                    <ui:Button Content="Apply" Appearance="Info" HorizontalAlignment="Stretch" Command="{Binding PresetMaxGraphicsCommand}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ═══════════════════════════════════ -->
+        <!--  GRAPHICS & FRAMERATE               -->
+        <!-- ═══════════════════════════════════ -->
+        <TextBlock Text="Graphics &amp; Framerate" FontSize="20" FontWeight="Medium" Margin="0,0,0,0" />
 
         <controls:OptionControl Header="Rendering Mode" Description="Force a specific graphics API. Vulkan may improve performance on modern GPUs.">
             <ComboBox Width="140" ItemsSource="{Binding RenderingModeOptions}" SelectedValuePath="Key" DisplayMemberPath="Value" SelectedValue="{Binding SelectedRenderingMode, Mode=TwoWay}" />
@@ -100,101 +144,6 @@
                 <ComboBoxItem Content="4x" Tag="4" />
             </ComboBox>
         </controls:OptionControl>
-
-        <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding TextureQualityOverrideEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
-            <ui:CardExpander.Header>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock FontSize="14" Text="Texture Quality Override" />
-                        <TextBlock FontSize="12" Text="Force a specific texture resolution level. 0 = lowest, 3 = highest." Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                    </StackPanel>
-                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding TextureQualityOverrideEnabled, Mode=TwoWay}" />
-                </Grid>
-            </ui:CardExpander.Header>
-            <Grid Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Low" Grid.Column="0" VerticalAlignment="Center" />
-                <Slider Grid.Column="1" Margin="8,0,8,0" Minimum="0" Maximum="3" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding TextureQualityLevel, Mode=TwoWay}" />
-                <TextBlock Text="Ultra" Grid.Column="2" VerticalAlignment="Center" />
-                <Border Margin="8,-4,0,0" Grid.Column="3" Width="30" BorderBrush="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" Background="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" BorderThickness="1" CornerRadius="4">
-                    <TextBlock HorizontalAlignment="Center" Padding="4" VerticalAlignment="Center" TextAlignment="Center" Text="{Binding TextureQualityLevel}" />
-                </Border>
-            </Grid>
-        </ui:CardExpander>
-
-        <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding MeshLODEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
-            <ui:CardExpander.Header>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock FontSize="14" Text="Mesh LOD Distance" />
-                        <TextBlock FontSize="12" Text="Controls how far away meshes switch to lower detail. Lower = less detail = better FPS." Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                    </StackPanel>
-                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding MeshLODEnabled, Mode=TwoWay}" />
-                </Grid>
-            </ui:CardExpander.Header>
-            <Grid Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="50" Grid.Column="0" VerticalAlignment="Center" />
-                <Slider Grid.Column="1" Margin="8,0,8,0" Minimum="50" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True" Value="{Binding MeshLODDistance, Mode=TwoWay}" />
-                <TextBlock Text="1000" Grid.Column="2" VerticalAlignment="Center" />
-                <Border Margin="8,-4,0,0" Grid.Column="3" Width="50" BorderBrush="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" Background="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" BorderThickness="1" CornerRadius="4">
-                    <TextBlock HorizontalAlignment="Center" Padding="4" VerticalAlignment="Center" TextAlignment="Center" Text="{Binding MeshLODDistance}" />
-                </Border>
-            </Grid>
-        </ui:CardExpander>
-
-        <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding FRMOverrideEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
-            <ui:CardExpander.Header>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock FontSize="14" Text="FRM Quality Level Override" />
-                        <TextBlock FontSize="12" Text="Force Roblox's internal quality level (1-10). Lower = less detail = more FPS." Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                    </StackPanel>
-                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding FRMOverrideEnabled, Mode=TwoWay}" />
-                </Grid>
-            </ui:CardExpander.Header>
-            <Grid Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="1" Grid.Column="0" VerticalAlignment="Center" />
-                <Slider Grid.Column="1" Margin="8,0,8,0" Minimum="1" Maximum="10" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FRMQualityLevel, Mode=TwoWay}" />
-                <TextBlock Text="10" Grid.Column="2" VerticalAlignment="Center" />
-                <Border Margin="8,-4,0,0" Grid.Column="3" Width="30" BorderBrush="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" Background="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" BorderThickness="1" CornerRadius="4">
-                    <TextBlock HorizontalAlignment="Center" Padding="4" VerticalAlignment="Center" TextAlignment="Center" Text="{Binding FRMQualityLevel}" />
-                </Border>
-            </Grid>
-        </ui:CardExpander>
-
-        <!-- ═══════════════════════════════════ -->
-        <!--  FPS CONTROL                        -->
-        <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Framerate" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
 
         <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding FPSUnlocked, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
             <ui:CardExpander.Header>
@@ -258,10 +207,100 @@
             </Grid>
         </ui:CardExpander>
 
+        <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding FRMOverrideEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
+            <ui:CardExpander.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock FontSize="14" Text="FRM Quality Level Override" />
+                        <TextBlock FontSize="12" Text="Force Roblox's internal quality level (1-10). Lower = less detail = more FPS." Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding FRMOverrideEnabled, Mode=TwoWay}" />
+                </Grid>
+            </ui:CardExpander.Header>
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="1" Grid.Column="0" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" Margin="8,0,8,0" Minimum="1" Maximum="10" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FRMQualityLevel, Mode=TwoWay}" />
+                <TextBlock Text="10" Grid.Column="2" VerticalAlignment="Center" />
+                <Border Margin="8,-4,0,0" Grid.Column="3" Width="30" BorderBrush="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" Background="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" BorderThickness="1" CornerRadius="4">
+                    <TextBlock HorizontalAlignment="Center" Padding="4" VerticalAlignment="Center" TextAlignment="Center" Text="{Binding FRMQualityLevel}" />
+                </Border>
+            </Grid>
+        </ui:CardExpander>
+
+        <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding TextureQualityOverrideEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
+            <ui:CardExpander.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock FontSize="14" Text="Texture Quality Override" />
+                        <TextBlock FontSize="12" Text="Force a specific texture resolution level. 0 = lowest, 3 = highest." Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding TextureQualityOverrideEnabled, Mode=TwoWay}" />
+                </Grid>
+            </ui:CardExpander.Header>
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Low" Grid.Column="0" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" Margin="8,0,8,0" Minimum="0" Maximum="3" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding TextureQualityLevel, Mode=TwoWay}" />
+                <TextBlock Text="Ultra" Grid.Column="2" VerticalAlignment="Center" />
+                <Border Margin="8,-4,0,0" Grid.Column="3" Width="30" BorderBrush="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" Background="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" BorderThickness="1" CornerRadius="4">
+                    <TextBlock HorizontalAlignment="Center" Padding="4" VerticalAlignment="Center" TextAlignment="Center" Text="{Binding TextureQualityLevel}" />
+                </Border>
+            </Grid>
+        </ui:CardExpander>
+
+        <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding MeshLODEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
+            <ui:CardExpander.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock FontSize="14" Text="Mesh LOD Distance" />
+                        <TextBlock FontSize="12" Text="Controls how far away meshes switch to lower detail. Lower = less detail = better FPS." Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding MeshLODEnabled, Mode=TwoWay}" />
+                </Grid>
+            </ui:CardExpander.Header>
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="50" Grid.Column="0" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" Margin="8,0,8,0" Minimum="50" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True" Value="{Binding MeshLODDistance, Mode=TwoWay}" />
+                <TextBlock Text="1000" Grid.Column="2" VerticalAlignment="Center" />
+                <Border Margin="8,-4,0,0" Grid.Column="3" Width="50" BorderBrush="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" Background="{ui:ThemeResource SolidBackgroundFillColorSecondarybrush}" BorderThickness="1" CornerRadius="4">
+                    <TextBlock HorizontalAlignment="Center" Padding="4" VerticalAlignment="Center" TextAlignment="Center" Text="{Binding MeshLODDistance}" />
+                </Border>
+            </Grid>
+        </ui:CardExpander>
+
         <!-- ═══════════════════════════════════ -->
-        <!--  LIGHTING & SHADOWS                 -->
+        <!--  LIGHTING & EFFECTS                 -->
         <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Lighting &amp; Shadows" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
+        <TextBlock Text="Lighting &amp; Effects" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
 
         <controls:OptionControl Header="Disable All Shadows" Description="Completely removes shadow rendering. Major FPS gain.">
             <ui:ToggleSwitch IsChecked="{Binding DisableShadows, Mode=TwoWay}" />
@@ -306,9 +345,9 @@
         </controls:OptionControl>
 
         <!-- ═══════════════════════════════════ -->
-        <!--  TERRAIN & ENVIRONMENT              -->
+        <!--  WORLD & ENVIRONMENT                -->
         <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Terrain &amp; Environment" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
+        <TextBlock Text="World &amp; Environment" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
 
         <controls:OptionControl Header="Disable Grass" Description="Removes all terrain grass decoration. Helps on nature-heavy maps.">
             <ui:ToggleSwitch IsChecked="{Binding DisableGrass, Mode=TwoWay}" />
@@ -348,11 +387,6 @@
             </Grid>
         </ui:CardExpander>
 
-        <!-- ═══════════════════════════════════ -->
-        <!--  PARTICLES                          -->
-        <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Particles" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
-
         <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding ParticleCapEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
             <ui:CardExpander.Header>
                 <Grid>
@@ -384,9 +418,9 @@
         </ui:CardExpander>
 
         <!-- ═══════════════════════════════════ -->
-        <!--  NETWORK / PING                     -->
+        <!--  NETWORK & PHYSICS                  -->
         <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Network / Ping" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
+        <TextBlock Text="Network &amp; Physics" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
 
         <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding NetworkTuningEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
             <ui:CardExpander.Header>
@@ -477,11 +511,6 @@
             <ui:ToggleSwitch IsChecked="{Binding NetworkPrediction, Mode=TwoWay}" />
         </controls:OptionControl>
 
-        <!-- ═══════════════════════════════════ -->
-        <!--  PHYSICS                            -->
-        <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Physics" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
-
         <ui:CardExpander Margin="0,8,0,0" IsExpanded="{Binding PhysicsTuningEnabled, Mode=OneWay}" Style="{StaticResource NoUserExpansionCardExpanderStyle}">
             <ui:CardExpander.Header>
                 <Grid>
@@ -569,25 +598,5 @@
                 </Border>
             </Grid>
         </ui:CardExpander>
-
-        <!-- ═══════════════════════════════════ -->
-        <!--  PRIVACY                            -->
-        <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Privacy" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
-
-        <controls:OptionControl Header="Disable Telemetry" Description="Blocks all Roblox telemetry, analytics, and stat reporting.">
-            <ui:ToggleSwitch IsChecked="{Binding DisableTelemetry, Mode=TwoWay}" />
-        </controls:OptionControl>
-
-        <!-- ═══════════════════════════════════ -->
-        <!--  ADVANCED                           -->
-        <!-- ═══════════════════════════════════ -->
-        <TextBlock Text="Advanced" FontSize="20" FontWeight="Medium" Margin="0,16,0,0" />
-
-        <controls:OptionControl Header="Bypass Flag Method" Description="Writes flags directly to all Roblox version directories with read-only lock. Persists through updates.">
-            <ui:ToggleSwitch IsChecked="{Binding BypassMode, Mode=TwoWay}" />
-        </controls:OptionControl>
-
-        <ui:InfoBar Margin="0,8,0,0" Padding="8" Title="About Bypass Mode" Message="When enabled, Bytestrap writes your FastFlags directly into every Roblox version folder and marks them read-only. This makes it harder for Roblox to overwrite your settings on launch." Severity="Informational" IsOpen="True" IsClosable="False" />
     </StackPanel>
 </ui:UiPage>

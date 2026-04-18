@@ -172,5 +172,35 @@ namespace Bloxstrap.UI.ViewModels.Settings
                 RequestPageReloadEvent?.Invoke(this, EventArgs.Empty);
             }
         }
+
+        // ═══════════════════════════════════
+        //  Privacy
+        // ═══════════════════════════════════
+
+        public bool DisableTelemetry
+        {
+            get => App.FastFlags.GetPreset("Performance.DisableTelemetry") == "True";
+            set
+            {
+                string? val = value ? "True" : null;
+                App.FastFlags.SetPreset("Performance.DisableTelemetry", val);
+                App.FastFlags.SetPreset("Performance.DisableTelemetry2", val);
+                App.FastFlags.SetPreset("Performance.DisableTelemetry3", val);
+                App.FastFlags.SetPreset("Performance.DisableTelemetry4", val);
+                App.FastFlags.SetPreset("Performance.DisableTelemetry5", val);
+                App.FastFlags.SetPreset("Performance.DisableTelemetry6", val);
+                App.FastFlags.SetPreset("Performance.DisableTelemetry7", val);
+            }
+        }
+
+        // ═══════════════════════════════════
+        //  Bypass Mode
+        // ═══════════════════════════════════
+
+        public bool BypassMode
+        {
+            get => App.Settings.Prop.UseBypassFlagMethod;
+            set => App.Settings.Prop.UseBypassFlagMethod = value;
+        }
     }
 }

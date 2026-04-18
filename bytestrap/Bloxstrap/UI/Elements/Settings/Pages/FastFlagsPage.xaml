@@ -147,5 +147,19 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
         </controls:OptionControl>
+
+        <TextBlock Text="Privacy" FontSize="16" FontWeight="Medium" Margin="0,16,0,0" />
+
+        <controls:OptionControl Header="Disable Telemetry" Description="Blocks all Roblox telemetry, analytics, and stat reporting.">
+            <ui:ToggleSwitch IsChecked="{Binding DisableTelemetry, Mode=TwoWay}" />
+        </controls:OptionControl>
+
+        <TextBlock Text="Advanced" FontSize="16" FontWeight="Medium" Margin="0,16,0,0" />
+
+        <controls:OptionControl Header="Bypass Flag Method" Description="Writes flags directly to all Roblox version directories with read-only lock. Persists through updates.">
+            <ui:ToggleSwitch IsChecked="{Binding BypassMode, Mode=TwoWay}" />
+        </controls:OptionControl>
+
+        <ui:InfoBar Margin="0,8,0,0" Padding="8" Title="About Bypass Mode" Message="When enabled, Bytestrap writes your FastFlags directly into every Roblox version folder and marks them read-only. This makes it harder for Roblox to overwrite your settings on launch." Severity="Informational" IsOpen="True" IsClosable="False" />
     </StackPanel>
 </ui:UiPage>

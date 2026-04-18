@@ -39,6 +39,7 @@ fork of fishstrap/bloxstrap that's all about getting more fps and less ping. mes
 - cache cleaner
 - custom themes
 - mod support (cursors, sounds, etc)
+- + the contrebution and shit are in the folder itself for the skids themself
 
 plus everything else from bloxstrap/fishstrap
 

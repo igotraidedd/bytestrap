@@ -24,6 +24,40 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- X-formation background effect -->
+        <Canvas Grid.RowSpan="3" Panel.ZIndex="-1" IsHitTestVisible="False">
+            <Rectangle Canvas.Left="0" Canvas.Top="0" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" Opacity="0.7">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#000D1225" Offset="0.0" />
+                        <GradientStop Color="#FF101838" Offset="0.25" />
+                        <GradientStop Color="#FF182248" Offset="0.5" />
+                        <GradientStop Color="#FF101838" Offset="0.75" />
+                        <GradientStop Color="#000D1225" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Rectangle Canvas.Left="0" Canvas.Top="0" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" Opacity="0.7">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="1,0" EndPoint="0,1">
+                        <GradientStop Color="#000D1225" Offset="0.0" />
+                        <GradientStop Color="#FF101838" Offset="0.25" />
+                        <GradientStop Color="#FF182248" Offset="0.5" />
+                        <GradientStop Color="#FF101838" Offset="0.75" />
+                        <GradientStop Color="#000D1225" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Ellipse Canvas.Left="150" Canvas.Top="100" Width="200" Height="150" Opacity="0.05">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#FF3A5A8A" Offset="0.0" />
+                        <GradientStop Color="#000D1225" Offset="1.0" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+        </Canvas>
+
         <ui:TitleBar Grid.Row="0" Grid.ColumnSpan="2" Padding="8" Title="{x:Static resources:Strings.Installer_Title}" ShowMinimize="False" ShowMaximize="False" CanMaximize="False" KeyboardNavigation.TabNavigation="None" Icon="pack://application:,,,/byteblox.png" />
 
         <StackPanel Grid.Row="1" Margin="12">

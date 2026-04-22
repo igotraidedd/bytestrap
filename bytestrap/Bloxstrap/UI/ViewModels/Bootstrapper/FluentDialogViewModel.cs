@@ -29,11 +29,21 @@ namespace Bloxstrap.UI.ViewModels.Bootstrapper
 
             WindowBackdropType = aero ? BackgroundType.Aero : BackgroundType.Mica;
 
+            bool isLight = App.Settings.Prop.Theme.GetFinal() == Enums.Theme.Light;
+
             if (aero)
             {
-                BackgroundColourBrush = App.Settings.Prop.Theme.GetFinal() == Enums.Theme.Light ?
+                BackgroundColourBrush = isLight ?
                     new SolidColorBrush(Color.FromArgb(alpha, 225, 225, 225)) :
                     new SolidColorBrush(Color.FromArgb(alpha, 30, 30, 30));
+            }
+            else
+            {
+                // Fallback solid background so the dialog is never see-through
+                // when Mica isn't applied (e.g. Windows 10 or unsupported setups).
+                BackgroundColourBrush = isLight ?
+                    new SolidColorBrush(Color.FromRgb(243, 243, 243)) :
+                    new SolidColorBrush(Color.FromRgb(32, 32, 32));
             }
 
             VersionText = $"{Strings.Common_Version}: {version}";

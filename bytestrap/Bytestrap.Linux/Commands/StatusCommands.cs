@@ -10,12 +10,16 @@ public static class StatusCommands
     {
         var installs = ctx.Installs();
         string runner = WineRunner.ResolveRunner(ctx.Settings);
+        var sober = FlatpakRunners.Sober();
+        var vinegar = FlatpakRunners.Vinegar();
 
         if (ctx.JsonOutput)
         {
             var payload = new
             {
                 runner = string.IsNullOrEmpty(runner) ? null : runner,
+                sober = sober.Installed,
+                vinegar = vinegar.Installed,
                 masterFlags = ctx.MasterFlags.Flags.Count,
                 installs = installs.Select(i => new
                 {
@@ -37,6 +41,8 @@ public static class StatusCommands
 
         Cli.Head("== Bytestrap status ==");
         Cli.WriteLine($"Runner:       {(string.IsNullOrEmpty(runner) ? "(none found)" : runner)}");
+        Cli.WriteLine($"Sober:        {(sober.Installed ? $"installed ({sober.Source}) - use it to play" : "not installed")}");
+        Cli.WriteLine($"Vinegar:      {(vinegar.Installed ? $"installed ({vinegar.Source})" : "not installed")}");
         Cli.WriteLine($"Master flags: {ctx.MasterFlags.Flags.Count} ({Bytestrap.Core.Config.Paths.MasterFlagsFile})");
         Cli.WriteLine($"Installs:     {installs.Count}");
 
@@ -44,8 +50,9 @@ public static class StatusCommands
         {
             Cli.WriteLine();
             Cli.Warn("No Roblox installs found in any Wine prefix.");
-            Cli.WriteLine("Install Roblox through your runner (wine/vinegar/bottles/sober), or point");
-            Cli.WriteLine("Bytestrap at a prefix with:  bytestrap --prefix /path/to/prefix status");
+            Cli.WriteLine("To play: install Sober (flatpak install flathub org.vinegarhq.Sober).");
+            Cli.WriteLine("To manage flags for a Wine-layout install (e.g. Studio via Vinegar),");
+            Cli.WriteLine("point Bytestrap at a prefix:  bytestrap --prefix /path/to/prefix status");
             return 0;
         }
 

@@ -43,7 +43,22 @@ if [ "${UNINSTALL}" = 1 ]; then
 fi
 
 if ! command -v dotnet >/dev/null 2>&1; then
-    echo "error: the .NET 8 SDK is required to build (https://dot.net)" >&2
+    echo "error: the .NET 8 SDK is required to build." >&2
+    echo "" >&2
+    # Point at the distro's own package when we recognise it.
+    DISTRO_ID="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
+    case "${DISTRO_ID}" in
+        arch|cachyos|endeavouros|manjaro|artix)
+            echo "  on Arch:  sudo pacman -S dotnet-sdk-8.0   (or dotnet-sdk for latest)" >&2 ;;
+        fedora|nobara)
+            echo "  on Fedora:  sudo dnf install dotnet-sdk-8.0" >&2 ;;
+        opensuse*|*suse*)
+            echo "  on openSUSE:  sudo zypper install dotnet-sdk-8.0" >&2 ;;
+        ubuntu|debian|linuxmint|pop)
+            echo "  on Debian/Ubuntu: see https://learn.microsoft.com/dotnet/core/install/linux" >&2 ;;
+        *)
+            echo "  install it from https://dot.net (8.0 SDK or newer)" >&2 ;;
+    esac
     exit 1
 fi
 

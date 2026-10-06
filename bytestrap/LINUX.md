@@ -9,9 +9,14 @@ Bottles, Sober, Steam Proton).
 > Roblox has no native Linux build, so Bytestrap doesn't install or patch
 > Roblox itself here — it manages `ClientAppSettings.json` flags across your
 > Wine prefixes and launches the game through your runner with a tuned
-> environment. Flag management works with any runner; actually *playing*
-> depends on your runner working with Roblox's anti-cheat, so prefer an
-> actively maintained one (Sober/Vinegar) and check its docs.
+> environment.
+>
+> To actually **play** in 2026, use [Sober](https://sober.vinegarhq.org/)
+> (`flatpak install flathub org.vinegarhq.Sober`) - Roblox's Hyperion
+> anti-cheat blocks the stock Windows Player under Wine. For **Studio**, use
+> [Vinegar](https://vinegarhq.org/) from Flathub. `bytestrap status` shows
+> which of these you have installed. Bytestrap's flag management targets any
+> Wine-layout install (Studio via Vinegar, custom prefixes, ...).
 
 ---
 
@@ -46,6 +51,11 @@ dotnet publish Bytestrap.Linux/Bytestrap.Linux.csproj -c Release -o out
 
 The port has **zero NuGet dependencies** — it builds offline with just the SDK.
 
+> [!TIP]
+> On Arch? Everything's in the official repos (`dotnet-sdk-8.0`, `flatpak`,
+> `wine` from multilib) — see the step-by-step in the main
+> [README](README.md#arch-linux-btw).
+
 ---
 
 ## Quickstart
@@ -65,7 +75,7 @@ the equivalent of the Windows app's bypass flag method.
 ## Commands
 
 ```
-bytestrap status [--json] [--prefix DIR]   runner / installs / flag overview
+bytestrap status [--json] [--prefix DIR]   runner / sober / installs / flags
 bytestrap versions                         list detected Roblox versions
 bytestrap apply                            deploy master flags to all installs
 
@@ -191,8 +201,9 @@ xdg-mime default bytestrap-handler.desktop x-scheme-handler/roblox
 
 ## Troubleshooting
 
-- **`No Roblox installs found`** — install Roblox inside your Wine prefix
-  first (via your runner's own installer), or pass the prefix explicitly:
+- **`No Roblox installs found`** — to play, install Sober
+  (`flatpak install flathub org.vinegarhq.Sober`); for flag management of a
+  Wine-layout install (e.g. Studio via Vinegar), pass the prefix explicitly:
   `bytestrap --prefix /path/to/prefix status`.
 - **`No Wine/Proton runner found`** — install `wine64` (or your runner of
   choice) and make sure it's on PATH, or `bytestrap config set runner …`.

@@ -1,6 +1,7 @@
-﻿using Bloxstrap.Utility;
+using Bloxstrap.Utility;
 using Bloxstrap.Properties;
 using System;
+using System.Collections.Concurrent;
 using System.Configuration;
 using System.Windows.Automation;
 using Windows.Win32.Foundation;
@@ -48,7 +49,8 @@ namespace Bloxstrap.RobloxInterfaces
             HttpStatusCode.NotFound
         };
 
-        private static readonly Dictionary<string, ClientVersion> ClientVersionCache = new();
+        // GetInfo is called from async/concurrent paths - use a thread-safe cache.
+        private static readonly ConcurrentDictionary<string, ClientVersion> ClientVersionCache = new();
 
         // a list of roblox deployment locations that we check for, in case one of them don't work
         // these are all weighted based on their priority, so that we pick the most optimal one that we can. 0 = highest
@@ -159,13 +161,7 @@ namespace Bloxstrap.RobloxInterfaces
             try
             {
                 Uri apiUrl = UrlBuilder.BuildApiUrl("clientsettings", "v2/user-channel?binaryType=" + binaryType);
-                HttpResponseMessage response = await App.Cookies.AuthGet(apiUrl);
-                response.EnsureSuccessStatusCode();
-
-                string content = await response.Content.ReadAsStringAsync();
-                UserChannel channelInfo = JsonSerializer.Deserialize<UserChannel>(content)!;
-
-                return channelInfo;
+                return await Http.AuthGetJson<UserChannel>(apiUrl);
             }
             catch (HttpRequestException ex)
             {
@@ -187,7 +183,7 @@ namespace Bloxstrap.RobloxInterfaces
             try
             {
                 Uri apiUrl = UrlBuilder.BuildApiUrl("clientsettingscdn", "v2/client-version/WindowsPlayer/channel/" + channel);
-                var response = await App.HttpClient.GetAsync(apiUrl);
+                using var response = await App.HttpClient.GetAsync(apiUrl);
                 response.EnsureSuccessStatusCode();
             }
             catch (HttpRequestException ex)
@@ -211,7 +207,7 @@ namespace Bloxstrap.RobloxInterfaces
             try
             {
                 string location = GetLocation($"/{version}-rbxPkgManifest.txt");
-                var response = await App.HttpClient.GetAsync(location);
+                using var response = await App.HttpClient.GetAsync(location);
                 response.EnsureSuccessStatusCode();
 
                 if (response.Content.Headers.TryGetValues(header, out var values))
@@ -257,10 +253,10 @@ namespace Bloxstrap.RobloxInterfaces
 
             ClientVersion clientVersion;
 
-            if (ClientVersionCache.ContainsKey(cacheKey))
+            if (ClientVersionCache.TryGetValue(cacheKey, out ClientVersion? cachedVersion))
             {
                 App.Logger.WriteLine(LOG_IDENT, "Deploy information is cached");
-                clientVersion = ClientVersionCache[cacheKey];
+                clientVersion = cachedVersion;
             }
             else
             {

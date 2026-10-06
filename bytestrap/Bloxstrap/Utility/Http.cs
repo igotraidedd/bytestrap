@@ -1,9 +1,11 @@
-﻿namespace Bloxstrap.Utility
+namespace Bloxstrap.Utility
 {
     internal static class Http
     {
         /// <summary>
-        /// Gets and deserializes a JSON API response to the specified object
+        /// Gets and deserializes a JSON API response to the specified object.
+        /// Responses are disposed (frees the socket promptly) and deserialized
+        /// straight from the network stream instead of buffering a giant string.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="url"></param>
@@ -11,48 +13,48 @@
         /// <exception cref="JsonException"></exception>
         public static async Task<T> GetJson<T>(Uri url)
         {
-            var request = await App.HttpClient.GetAsync(url);
+            using var response = await App.HttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 
-            request.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode();
 
-            string json = await request.Content.ReadAsStringAsync();
-            
-            return JsonSerializer.Deserialize<T>(json)!;
+            await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+
+            return (await JsonSerializer.DeserializeAsync<T>(stream).ConfigureAwait(false))!;
         }
 
         public static async Task<T> SendJson<T>(HttpRequestMessage requestMessage)
         {
-            var request = await App.HttpClient.SendAsync(requestMessage);
+            using var response = await App.HttpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 
-            request.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode();
 
-            string json = await request.Content.ReadAsStringAsync();
+            await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
-            return JsonSerializer.Deserialize<T>(json)!;
+            return (await JsonSerializer.DeserializeAsync<T>(stream).ConfigureAwait(false))!;
         }
 
         public static async Task<T> AuthGetJson<T>(Uri url)
         {
-            var request = await App.Cookies.AuthGet(url);
+            using var response = await App.Cookies.AuthGet(url).ConfigureAwait(false);
 
-            request.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode();
 
-            string json = await request.Content.ReadAsStringAsync();
+            await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
-            return JsonSerializer.Deserialize<T>(json)!;
+            return (await JsonSerializer.DeserializeAsync<T>(stream).ConfigureAwait(false))!;
         }
 
         public static async Task<T> AuthSendJson<T>(HttpRequestMessage requestMessage)
         {
             HttpContent content = requestMessage.Content!;
 
-            var request = await App.Cookies.AuthPost(requestMessage.RequestUri, content);
+            using var response = await App.Cookies.AuthPost(requestMessage.RequestUri, content).ConfigureAwait(false);
 
-            request.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode();
 
-            string json = await request.Content.ReadAsStringAsync();
+            await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
-            return JsonSerializer.Deserialize<T>(json)!;
+            return (await JsonSerializer.DeserializeAsync<T>(stream).ConfigureAwait(false))!;
         }
     }
 }

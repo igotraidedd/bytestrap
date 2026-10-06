@@ -13,14 +13,93 @@ namespace Bloxstrap.UI.ViewModels.Settings
         // ═══════════════════════════════════
         //  Hardware Info (read-only)
         // ═══════════════════════════════════
+        //
+        // NOTE: hardware queries (WMI) can block for hundreds of milliseconds,
+        // so they load on a background thread after the page renders instead of
+        // stalling the UI thread in the constructor.
 
-        public string CPUName { get; } = Bloxstrap.Utility.HardwareInfo.GetCPUName();
-        public string GPUName { get; } = Bloxstrap.Utility.HardwareInfo.GetGPUName();
-        public string TotalRAM { get; } = Bloxstrap.Utility.HardwareInfo.GetTotalRAM();
-        public string WindowsVersion { get; } = Bloxstrap.Utility.HardwareInfo.GetWindowsVersion();
-        public string SystemUptime { get; } = Bloxstrap.Utility.HardwareInfo.GetUptime();
-        public string DiskSpace { get; } = Bloxstrap.Utility.HardwareInfo.GetDiskSpace();
-        public string GPUDriver { get; } = Bloxstrap.Utility.HardwareInfo.GetGPUDriverVersion();
+        public PerformanceViewModel()
+        {
+            LoadHardwareInfoAsync();
+        }
+
+        private string _cpuName = "Loading...";
+        public string CPUName
+        {
+            get => _cpuName;
+            private set { _cpuName = value; OnPropertyChanged(nameof(CPUName)); }
+        }
+
+        private string _gpuName = "Loading...";
+        public string GPUName
+        {
+            get => _gpuName;
+            private set { _gpuName = value; OnPropertyChanged(nameof(GPUName)); }
+        }
+
+        private string _totalRAM = "Loading...";
+        public string TotalRAM
+        {
+            get => _totalRAM;
+            private set { _totalRAM = value; OnPropertyChanged(nameof(TotalRAM)); }
+        }
+
+        private string _windowsVersion = "Loading...";
+        public string WindowsVersion
+        {
+            get => _windowsVersion;
+            private set { _windowsVersion = value; OnPropertyChanged(nameof(WindowsVersion)); }
+        }
+
+        private string _systemUptime = "Loading...";
+        public string SystemUptime
+        {
+            get => _systemUptime;
+            private set { _systemUptime = value; OnPropertyChanged(nameof(SystemUptime)); }
+        }
+
+        private string _diskSpace = "Loading...";
+        public string DiskSpace
+        {
+            get => _diskSpace;
+            private set { _diskSpace = value; OnPropertyChanged(nameof(DiskSpace)); }
+        }
+
+        private string _gpuDriver = "Loading...";
+        public string GPUDriver
+        {
+            get => _gpuDriver;
+            private set { _gpuDriver = value; OnPropertyChanged(nameof(GPUDriver)); }
+        }
+
+        private async void LoadHardwareInfoAsync()
+        {
+            try
+            {
+                // HardwareInfo caches internally, so repeat visits are instant.
+                var info = await Task.Run(() => (
+                    CPU: Bloxstrap.Utility.HardwareInfo.GetCPUName(),
+                    GPU: Bloxstrap.Utility.HardwareInfo.GetGPUName(),
+                    RAM: Bloxstrap.Utility.HardwareInfo.GetTotalRAM(),
+                    OS: Bloxstrap.Utility.HardwareInfo.GetWindowsVersion(),
+                    Uptime: Bloxstrap.Utility.HardwareInfo.GetUptime(),
+                    Disk: Bloxstrap.Utility.HardwareInfo.GetDiskSpace(),
+                    Driver: Bloxstrap.Utility.HardwareInfo.GetGPUDriverVersion()
+                ));
+
+                CPUName = info.CPU;
+                GPUName = info.GPU;
+                TotalRAM = info.RAM;
+                WindowsVersion = info.OS;
+                SystemUptime = info.Uptime;
+                DiskSpace = info.Disk;
+                GPUDriver = info.Driver;
+            }
+            catch
+            {
+                CPUName = GPUName = TotalRAM = WindowsVersion = SystemUptime = DiskSpace = GPUDriver = "Unknown";
+            }
+        }
 
         // ═══════════════════════════════════
         //  Rendering Mode

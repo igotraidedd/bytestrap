@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Bytestrap.Core</AssemblyName>
+    <RootNamespace>Bytestrap.Core</RootNamespace>
+    <Version>3.1.0</Version>
+    <Authors>Bytestrap</Authors>
+    <Description>Cross-platform core for Bytestrap: fast-flag presets, performance profiles, Roblox-on-Wine install detection.</Description>
+    <!-- No PackageReferences on purpose: this library builds offline with just the .NET SDK. -->
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+</Project>

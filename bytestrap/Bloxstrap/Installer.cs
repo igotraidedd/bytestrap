@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Xml.Linq;
 using Bloxstrap.AppData;
@@ -414,7 +414,7 @@ namespace Bloxstrap
             var existingVer = FileVersionInfo.GetVersionInfo(Paths.Application).ProductVersion;
             var currentVer = FileVersionInfo.GetVersionInfo(Paths.Process).ProductVersion;
 
-            if (MD5Hash.FromFile(Paths.Process) == MD5Hash.FromFile(Paths.Application))
+            if (MD5Hash.FilesEqual(Paths.Process, Paths.Application))
                 return;
 
             if (currentVer is not null && existingVer is not null && Utilities.CompareVersions(currentVer, existingVer) == VersionComparison.LessThan)

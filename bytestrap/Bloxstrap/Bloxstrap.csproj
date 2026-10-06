@@ -1,17 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>True</UseWindowsForms>
     <ApplicationIcon>Bytestrap.ico</ApplicationIcon>
-    <Version>3.0.5</Version>
-    <FileVersion>3.0.5</FileVersion>
+    <Version>3.1.0</Version>
+    <FileVersion>3.1.0</FileVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- runtime performance: dynamic/tiered PGO produces better steady-state JIT code -->
+    <TieredPGO>true</TieredPGO>
+    <TieredCompilation>true</TieredCompilation>
 	<AssemblyName>Bytestrap</AssemblyName>
     <Product>$(AssemblyName)</Product>
     <RootNamespace>Bloxstrap</RootNamespace>

@@ -1,4 +1,5 @@
-﻿using Bloxstrap.Enums.FlagPresets;
+using Bloxstrap.Enums.FlagPresets;
+using System.Collections.Concurrent;
 using System.Security.Policy;
 using System.Windows;
 
@@ -14,7 +15,30 @@ namespace Bloxstrap
 
         public override string FileLocation => Path.Combine(Paths.Modifications, "ClientSettings\\ClientAppSettings.json");
 
-        public bool Changed => !OriginalProp.SequenceEqual(Prop);
+        /// <summary>
+        /// Order-independent comparison of current flags vs. last saved state.
+        /// Values are compared as strings so JsonElement survivors from Load()
+        /// compare equal to their string equivalents.
+        /// </summary>
+        public bool Changed
+        {
+            get
+            {
+                if (OriginalProp.Count != Prop.Count)
+                    return true;
+
+                foreach (var pair in Prop)
+                {
+                    if (!OriginalProp.TryGetValue(pair.Key, out object? original))
+                        return true;
+
+                    if (!String.Equals(original?.ToString(), pair.Value?.ToString(), StringComparison.Ordinal))
+                        return true;
+                }
+
+                return false;
+            }
+        }
 
         public static IReadOnlyDictionary<string, string> PresetFlags = new Dictionary<string, string>
         {
@@ -89,7 +113,9 @@ namespace Bloxstrap
             { "Performance.GarbageCollectionFreq", "DFIntGCFrequency" },
         };
 
-        public static IReadOnlyDictionary<RenderingMode, string> RenderingModes => new Dictionary<RenderingMode, string>
+        // These used to allocate a brand new dictionary on every property access
+        // (including per data-binding evaluation). They're immutable, so share one.
+        public static IReadOnlyDictionary<RenderingMode, string> RenderingModes { get; } = new Dictionary<RenderingMode, string>
         {
             { RenderingMode.Default, "None" },
             { RenderingMode.Vulkan, "Vulkan" },
@@ -97,7 +123,7 @@ namespace Bloxstrap
             { RenderingMode.D3D11, "D3D11" },
         };
 
-        public static IReadOnlyDictionary<MSAAMode, string?> MSAAModes => new Dictionary<MSAAMode, string?>
+        public static IReadOnlyDictionary<MSAAMode, string?> MSAAModes { get; } = new Dictionary<MSAAMode, string?>
         {
             { MSAAMode.Default, null },
             { MSAAMode.x1, "1" },
@@ -105,7 +131,7 @@ namespace Bloxstrap
             { MSAAMode.x4, "4" }
         };
 
-        public static IReadOnlyDictionary<TextureQuality, string?> TextureQualityLevels => new Dictionary<TextureQuality, string?>
+        public static IReadOnlyDictionary<TextureQuality, string?> TextureQualityLevels { get; } = new Dictionary<TextureQuality, string?>
         {
             { TextureQuality.Default, null },
             { TextureQuality.Level0, "0" },
@@ -113,6 +139,24 @@ namespace Bloxstrap
             { TextureQuality.Level2, "2" },
             { TextureQuality.Level3, "3" },
         };
+
+        // Case-insensitive lookup of every preset's underlying FFlag name,
+        // so IsPreset() is O(1) instead of an O(n) scan with string allocs.
+        private static readonly HashSet<string> _presetFlagNames =
+            new(PresetFlags.Values, StringComparer.OrdinalIgnoreCase);
+
+        // Memoized prefix scans: SetPreset()/SetPresetEnum() are called in tight
+        // loops by the settings UI, so each unique prefix is scanned exactly once.
+        // (Same StartsWith semantics as before, just Ordinal + cached.)
+        private static readonly ConcurrentDictionary<string, KeyValuePair<string, string>[]> _prefixCache =
+            new(StringComparer.Ordinal);
+
+        public static IReadOnlyList<KeyValuePair<string, string>> GetPairsByPrefix(string prefix) =>
+            _prefixCache.GetOrAdd(prefix, p =>
+                PresetFlags.Where(x => x.Key.StartsWith(p, StringComparison.Ordinal)).ToArray());
+
+        public static IReadOnlyList<string> GetKeysByPrefix(string prefix) =>
+            GetPairsByPrefix(prefix).Select(x => x.Key).ToArray();
 
         // all fflags are stored as strings
         // to delete a flag, set the value as null
@@ -129,19 +173,23 @@ namespace Bloxstrap
             }
             else
             {
-                if (Prop.ContainsKey(key))
+                string newValue = value.ToString()!;
+
+                if (Prop.TryGetValue(key, out object? existing))
                 {
-                    if (key == Prop[key].ToString())
+                    // skip no-op writes (previously compared the key against the
+                    // old value, which could never match - always log + rewrite)
+                    if (String.Equals(existing?.ToString(), newValue, StringComparison.Ordinal))
                         return;
 
-                    App.Logger.WriteLine(LOG_IDENT, $"Changing of '{key}' from '{Prop[key]}' to '{value}' is pending");
+                    App.Logger.WriteLine(LOG_IDENT, $"Changing of '{key}' from '{existing}' to '{newValue}' is pending");
                 }
                 else
                 {
-                    App.Logger.WriteLine(LOG_IDENT, $"Setting of '{key}' to '{value}' is pending");
+                    App.Logger.WriteLine(LOG_IDENT, $"Setting of '{key}' to '{newValue}' is pending");
                 }
 
-                Prop[key] = value.ToString()!;
+                Prop[key] = newValue;
             }
         }
 
@@ -157,15 +205,17 @@ namespace Bloxstrap
 
         public void SetPreset(string prefix, object? value)
         {
-            foreach (var pair in PresetFlags.Where(x => x.Key.StartsWith(prefix)))
+            foreach (var pair in GetPairsByPrefix(prefix))
                 SetValue(pair.Value, value);
         }
 
         public void SetPresetEnum(string prefix, string target, object? value)
         {
-            foreach (var pair in PresetFlags.Where(x => x.Key.StartsWith(prefix)))
+            string matchPrefix = $"{prefix}.{target}";
+
+            foreach (var pair in GetPairsByPrefix(prefix))
             {
-                if (pair.Key.StartsWith($"{prefix}.{target}"))
+                if (pair.Key.StartsWith(matchPrefix, StringComparison.Ordinal))
                     SetValue(pair.Value, value);
                 else
                     SetValue(pair.Value, null);
@@ -174,14 +224,14 @@ namespace Bloxstrap
 
         public string? GetPreset(string name)
         {
-            if (!PresetFlags.ContainsKey(name))
+            if (!PresetFlags.TryGetValue(name, out string? flag))
             {
                 App.Logger.WriteLine("FastFlagManager::GetPreset", $"Could not find preset {name}");
                 Debug.Assert(false, $"Could not find preset {name}");
                 return null;
             }
 
-            return GetValue(PresetFlags[name]);
+            return GetValue(flag);
         }
 
         public T GetPresetEnum<T>(IReadOnlyDictionary<T, string> mapping, string prefix, string value) where T : Enum
@@ -198,7 +248,9 @@ namespace Bloxstrap
             return mapping.First().Key;
         }
 
-        public bool IsPreset(string Flag) => PresetFlags.Values.Any(v => v.ToLower() == Flag.ToLower());
+        public bool IsPreset(string Flag) => _presetFlagNames.Contains(Flag);
+
+        private static readonly JsonSerializerOptions _flagJsonOptions = new() { WriteIndented = true };
 
         /// <summary>
         /// Writes flags directly to all Roblox version directories, bypassing the normal
@@ -216,56 +268,52 @@ namespace Bloxstrap
 
             string flagJson = JsonSerializer.Serialize(
                 Prop.ToDictionary(k => k.Key, v => v.Value.ToString()!),
-                new JsonSerializerOptions { WriteIndented = true }
+                _flagJsonOptions
             );
 
-            // Write directly to every Roblox version directory
-            if (Directory.Exists(Paths.Versions))
-            {
-                foreach (string versionDir in Directory.GetDirectories(Paths.Versions))
-                {
-                    string clientSettingsDir = Path.Combine(versionDir, "ClientSettings");
-                    string targetFile = Path.Combine(clientSettingsDir, "ClientAppSettings.json");
+            // Collect every version directory first (deduped), then write in parallel -
+            // each write is independent IO, so this scales with disk queue depth.
+            var versionDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                    try
-                    {
-                        Directory.CreateDirectory(clientSettingsDir);
-                        File.WriteAllText(targetFile, flagJson);
-                        // Make the file read-only to resist Roblox overwriting it
-                        File.SetAttributes(targetFile, File.GetAttributes(targetFile) | FileAttributes.ReadOnly);
-                        App.Logger.WriteLine(LOG_IDENT, $"Bypass wrote flags to {targetFile}");
-                    }
-                    catch (Exception ex)
-                    {
-                        App.Logger.WriteLine(LOG_IDENT, $"Failed to bypass write to {targetFile}");
-                        App.Logger.WriteException(LOG_IDENT, ex);
-                    }
+            void CollectVersionDirs(string? basePath)
+            {
+                if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath))
+                    return;
+
+                try
+                {
+                    foreach (string versionDir in Directory.GetDirectories(basePath))
+                        versionDirs.Add(versionDir);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger.WriteLine(LOG_IDENT, $"Failed to enumerate version dirs in {basePath}");
+                    App.Logger.WriteException(LOG_IDENT, ex);
                 }
             }
 
-            // Also write to the Roblox LocalAppData directory directly
-            string robloxVersionsPath = Path.Combine(Paths.LocalAppData, "Roblox", "Versions");
-            if (Directory.Exists(robloxVersionsPath))
-            {
-                foreach (string versionDir in Directory.GetDirectories(robloxVersionsPath))
-                {
-                    string clientSettingsDir = Path.Combine(versionDir, "ClientSettings");
-                    string targetFile = Path.Combine(clientSettingsDir, "ClientAppSettings.json");
+            CollectVersionDirs(Paths.Versions);
+            CollectVersionDirs(Path.Combine(Paths.LocalAppData, "Roblox", "Versions"));
 
-                    try
-                    {
-                        Directory.CreateDirectory(clientSettingsDir);
-                        File.WriteAllText(targetFile, flagJson);
-                        File.SetAttributes(targetFile, File.GetAttributes(targetFile) | FileAttributes.ReadOnly);
-                        App.Logger.WriteLine(LOG_IDENT, $"Bypass wrote flags to Roblox dir: {targetFile}");
-                    }
-                    catch (Exception ex)
-                    {
-                        App.Logger.WriteLine(LOG_IDENT, $"Failed to bypass write to Roblox dir: {targetFile}");
-                        App.Logger.WriteException(LOG_IDENT, ex);
-                    }
+            Parallel.ForEach(versionDirs, versionDir =>
+            {
+                string clientSettingsDir = Path.Combine(versionDir, "ClientSettings");
+                string targetFile = Path.Combine(clientSettingsDir, "ClientAppSettings.json");
+
+                try
+                {
+                    Directory.CreateDirectory(clientSettingsDir);
+                    File.WriteAllText(targetFile, flagJson);
+                    // Make the file read-only to resist Roblox overwriting it
+                    File.SetAttributes(targetFile, File.GetAttributes(targetFile) | FileAttributes.ReadOnly);
+                    App.Logger.WriteLine(LOG_IDENT, $"Bypass wrote flags to {targetFile}");
                 }
-            }
+                catch (Exception ex)
+                {
+                    App.Logger.WriteLine(LOG_IDENT, $"Failed to bypass write to {targetFile}");
+                    App.Logger.WriteException(LOG_IDENT, ex);
+                }
+            });
 
             App.Logger.WriteLine(LOG_IDENT, "Bypass flag write complete.");
         }
@@ -277,43 +325,48 @@ namespace Bloxstrap
         {
             const string LOG_IDENT = "FastFlagManager::ClearBypassLocks";
 
-            void UnlockDir(string basePath)
+            var flagFiles = new List<string>();
+
+            void CollectFlagFiles(string? basePath)
             {
-                if (!Directory.Exists(basePath))
+                if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath))
                     return;
 
                 foreach (string versionDir in Directory.GetDirectories(basePath))
                 {
                     string targetFile = Path.Combine(versionDir, "ClientSettings", "ClientAppSettings.json");
                     if (File.Exists(targetFile))
-                    {
-                        try
-                        {
-                            FileAttributes attrs = File.GetAttributes(targetFile);
-                            if (attrs.HasFlag(FileAttributes.ReadOnly))
-                            {
-                                File.SetAttributes(targetFile, attrs & ~FileAttributes.ReadOnly);
-                                App.Logger.WriteLine(LOG_IDENT, $"Unlocked {targetFile}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            App.Logger.WriteException(LOG_IDENT, ex);
-                        }
-                    }
+                        flagFiles.Add(targetFile);
                 }
             }
 
-            UnlockDir(Paths.Versions);
-            UnlockDir(Path.Combine(Paths.LocalAppData, "Roblox", "Versions"));
+            CollectFlagFiles(Paths.Versions);
+            CollectFlagFiles(Path.Combine(Paths.LocalAppData, "Roblox", "Versions"));
+
+            Parallel.ForEach(flagFiles, targetFile =>
+            {
+                try
+                {
+                    FileAttributes attrs = File.GetAttributes(targetFile);
+                    if (attrs.HasFlag(FileAttributes.ReadOnly))
+                    {
+                        File.SetAttributes(targetFile, attrs & ~FileAttributes.ReadOnly);
+                        App.Logger.WriteLine(LOG_IDENT, $"Unlocked {targetFile}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    App.Logger.WriteException(LOG_IDENT, ex);
+                }
+            });
         }
 
         public override void Save()
         {
             // convert all flag values to strings before saving
-
-            foreach (var pair in Prop)
-                Prop[pair.Key] = pair.Value.ToString()!;
+            // (snapshot keys first - never mutate a collection mid-enumeration)
+            foreach (string key in Prop.Keys.ToArray())
+                Prop[key] = Prop[key]?.ToString() ?? String.Empty;
 
             base.Save();
 
@@ -324,6 +377,11 @@ namespace Bloxstrap
         public override void Load(bool alertFailure = true)
         {
             base.Load(alertFailure);
+
+            // normalize everything to strings up front so later comparisons
+            // don't pay JsonElement overhead on every access
+            foreach (string key in Prop.Keys.ToArray())
+                Prop[key] = Prop[key]?.ToString() ?? String.Empty;
 
             // clone the dictionary
             OriginalProp = new(Prop);

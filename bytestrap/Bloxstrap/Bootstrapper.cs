@@ -64,6 +64,18 @@ namespace Bloxstrap
         private long _totalDownloadedBytes = 0;
         private bool _packageExtractionSuccess = true;
 
+        // Package IO concurrency: downloads are network-bound (parallel helps a
+        // lot on high-latency links), extraction is CPU/disk-bound (bounded so we
+        // don't thrash the disk with 40 concurrent unzips like before).
+        private const int MaxConcurrentDownloads = 4;
+        private const int MaxConcurrentExtractions = 4;
+        private readonly SemaphoreSlim _downloadLimiter = new(MaxConcurrentDownloads, MaxConcurrentDownloads);
+        private readonly SemaphoreSlim _extractLimiter = new(MaxConcurrentExtractions, MaxConcurrentExtractions);
+
+        // Progress UI is throttled so per-chunk updates don't flood the dispatcher.
+        private const int UiPushThrottleMs = 100;
+        private long _lastDownloadUiPushMs = 0;
+
         private bool _mustUpgrade => App.LaunchSettings.ForceFlag.Active || App.State.Prop.ForceReinstall || String.IsNullOrEmpty(AppData.State.VersionGuid) || !File.Exists(AppData.ExecutablePath);
         private bool _noConnection = false;
 
@@ -122,33 +134,92 @@ namespace Bloxstrap
                 PackageDirectoryMap[package.Key] = package.Value;
         }
 
-        private void SetStatus(string message)
-        {
-            message = message.Replace("{product}", AppData.ProductName);
-
-            if (Dialog is not null)
-                Dialog.Message = message;
-        }
-
-        private void UpdateProgressBar()
+        // Marshals dialog updates onto the UI thread. Downloads/extractions now run
+        // on threadpool threads, and WPF dialogs don't marshal for us.
+        private void PostToDialog(Action action)
         {
             if (Dialog is null)
                 return;
 
+            var dispatcher = App.Current?.Dispatcher;
+
+            if (dispatcher is null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+            {
+                // no UI thread (background updater, etc) - set directly
+                action();
+                return;
+            }
+
+            try
+            {
+                if (dispatcher.CheckAccess())
+                    action();
+                else
+                    dispatcher.BeginInvoke(action);
+            }
+            catch (InvalidOperationException)
+            {
+                // dispatcher shutting down mid-update - progress UI is expendable
+            }
+        }
+
+        private void SetStatus(string message)
+        {
+            message = message.Replace("{product}", AppData.ProductName);
+
+            if (Dialog is null)
+                return;
+
+            PostToDialog(() =>
+            {
+                if (Dialog is not null)
+                    Dialog.Message = message;
+            });
+        }
+
+        // Throttled gate for the hot download loop: progress UI refreshes at ~10Hz
+        // instead of once per network chunk (thousands of dispatcher posts/sec).
+        private bool ShouldPushDownloadUi()
+        {
+            long now = Environment.TickCount64;
+            long last = Interlocked.Read(ref _lastDownloadUiPushMs);
+
+            if (now - last < UiPushThrottleMs)
+                return false;
+
+            Interlocked.Exchange(ref _lastDownloadUiPushMs, now);
+            return true;
+        }
+
+        private void UpdateProgressBar(bool force = false)
+        {
+            if (Dialog is null)
+                return;
+
+            if (!force && !ShouldPushDownloadUi())
+                return;
+
+            long downloadedBytes = Interlocked.Read(ref _totalDownloadedBytes);
+
             // UI progress
-            int progressValue = (int)Math.Floor(_progressIncrement * _totalDownloadedBytes);
+            int progressValue = (int)Math.Floor(_progressIncrement * downloadedBytes);
 
             // bugcheck: if we're restoring a file from a package, it'll incorrectly increment the progress beyond 100
             // too lazy to fix properly so lol
             progressValue = Math.Clamp(progressValue, 0, ProgressBarMaximum);
 
-            Dialog.ProgressValue = progressValue;
-
             // taskbar progress
-            double taskbarProgressValue = _taskbarProgressIncrement * _totalDownloadedBytes;
+            double taskbarProgressValue = _taskbarProgressIncrement * downloadedBytes;
             taskbarProgressValue = Math.Clamp(taskbarProgressValue, 0, _taskbarProgressMaximum);
 
-            Dialog.TaskbarProgressValue = taskbarProgressValue;
+            PostToDialog(() =>
+            {
+                if (Dialog is null)
+                    return;
+
+                Dialog.ProgressValue = progressValue;
+                Dialog.TaskbarProgressValue = taskbarProgressValue;
+            });
         }
 
         private void HandleConnectionError(Exception exception)
@@ -1341,8 +1412,12 @@ namespace Bloxstrap
 
                 Dialog.ProgressMaximum = ProgressBarMaximum;
 
-                // compute total bytes to download
-                int totalPackedSize = _versionPackageManifest.Sum(package => package.PackedSize);
+                // compute total bytes to download (excluding ignored packages,
+                // which are skipped below and would otherwise stall the bar < 100%)
+                var ignoredPackages = App.RemoteData.Prop.IgnoredPackages;
+                int totalPackedSize = _versionPackageManifest
+                    .Where(package => !ignoredPackages.Contains(package.Name))
+                    .Sum(package => package.PackedSize);
                 _progressIncrement = (double)ProgressBarMaximum / totalPackedSize;
 
                 if (Dialog is WinFormsDialogBase)
@@ -1353,7 +1428,11 @@ namespace Bloxstrap
                 _taskbarProgressIncrement = _taskbarProgressMaximum / (double)totalPackedSize;
             }
 
-            var extractionTasks = new List<Task>();
+            // Download + extract packages with bounded parallelism: each package
+            // downloads (max 4 concurrent) and then extracts as soon as its own
+            // download finishes (max 4 concurrent), so network and disk overlap
+            // instead of alternating like before.
+            var packageTasks = new List<Task>();
 
             foreach (var package in _versionPackageManifest)
             {
@@ -1364,16 +1443,16 @@ namespace Bloxstrap
                 if (App.RemoteData.Prop.IgnoredPackages.Contains(package.Name))
                     continue;
 
-                // download all the packages synchronously
-                await DownloadPackage(package);
-
                 // we'll extract the runtime installer later if we need to
-                if (package.Name == "WebView2RuntimeInstaller.zip")
-                    continue;
+                bool skipExtraction = package.Name == "WebView2RuntimeInstaller.zip";
 
-                // extract the package async immediately after download
-                extractionTasks.Add(Task.Run(() => ExtractPackage(package), _cancelTokenSource.Token));
+                packageTasks.Add(DownloadAndExtractPackageAsync(package, skipExtraction));
             }
+
+            await Task.WhenAll(packageTasks);
+
+            // make sure the bar ends at 100% (throttled updates may lag behind)
+            UpdateProgressBar(force: true);
 
             if (_cancelTokenSource.IsCancellationRequested)
                 return;
@@ -1384,8 +1463,6 @@ namespace Bloxstrap
                 Dialog.TaskbarProgressState = TaskbarItemProgressState.Indeterminate;
                 SetStatus(Strings.Bootstrapper_Status_Configuring);
             }
-
-            await Task.WhenAll(extractionTasks);
 
             if (_cancelTokenSource.IsCancellationRequested)
                 return;
@@ -1636,7 +1713,8 @@ namespace Bloxstrap
                 string fileModFolder = Path.Combine(Paths.Modifications, relativeFile);
                 string fileVersionFolder = Path.Combine(_latestVersionDirectory, relativeFile);
 
-                if (File.Exists(fileVersionFolder) && MD5Hash.FromFile(fileModFolder) == MD5Hash.FromFile(fileVersionFolder))
+                // FilesEqual checks lengths first, so mismatched files skip hashing entirely
+                if (MD5Hash.FilesEqual(fileModFolder, fileVersionFolder))
                 {
                     App.Logger.WriteLine(LOG_IDENT, $"{relativeFile} already exists in the version folder, and is a match");
                     continue;
@@ -1730,6 +1808,53 @@ namespace Bloxstrap
             return success;
         }
 
+        private async Task DownloadAndExtractPackageAsync(Package package, bool skipExtraction)
+        {
+            try
+            {
+                await _downloadLimiter.WaitAsync(_cancelTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            try
+            {
+                await DownloadPackage(package);
+            }
+            finally
+            {
+                _downloadLimiter.Release();
+            }
+
+            if (skipExtraction || _cancelTokenSource.IsCancellationRequested)
+                return;
+
+            try
+            {
+                await _extractLimiter.WaitAsync(_cancelTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            try
+            {
+                // CPU-bound decompression stays off the download tasks
+                await Task.Run(() =>
+                {
+                    if (!_cancelTokenSource.IsCancellationRequested)
+                        ExtractPackage(package);
+                });
+            }
+            finally
+            {
+                _extractLimiter.Release();
+            }
+        }
+
         private async Task DownloadPackage(Package package)
         {
             string LOG_IDENT = $"Bootstrapper::DownloadPackage.{package.Name}";
@@ -1757,7 +1882,7 @@ namespace Bloxstrap
                 {
                     App.Logger.WriteLine(LOG_IDENT, $"Package is already downloaded, skipping...");
 
-                    _totalDownloadedBytes += package.PackedSize;
+                    Interlocked.Add(ref _totalDownloadedBytes, package.PackedSize);
                     UpdateProgressBar();
 
                     return;
@@ -1771,7 +1896,7 @@ namespace Bloxstrap
                 App.Logger.WriteLine(LOG_IDENT, $"Found existing copy at '{robloxPackageLocation}'! Copying to Downloads folder...");
                 File.Copy(robloxPackageLocation, package.DownloadPath);
 
-                _totalDownloadedBytes += package.PackedSize;
+                Interlocked.Add(ref _totalDownloadedBytes, package.PackedSize);
                 UpdateProgressBar();
 
                 return;
@@ -1782,9 +1907,11 @@ namespace Bloxstrap
 
             const int maxTries = 5;
 
-            App.Logger.WriteLine(LOG_IDENT, "Downloading...");
+            // 80KB chunks (up from 4KB): far fewer syscalls per package, and the
+            // buffer is pooled instead of allocated per download.
+            const int bufferSize = 81920;
 
-            var buffer = new byte[4096];
+            App.Logger.WriteLine(LOG_IDENT, "Downloading...");
 
             for (int i = 1; i <= maxTries; i++)
             {
@@ -1795,45 +1922,81 @@ namespace Bloxstrap
 
                 try
                 {
-                    var response = await App.HttpClient.GetAsync(packageUrl, HttpCompletionOption.ResponseHeadersRead, _cancelTokenSource.Token);
+                    using var response = await App.HttpClient.GetAsync(packageUrl, HttpCompletionOption.ResponseHeadersRead, _cancelTokenSource.Token);
+                    response.EnsureSuccessStatusCode();
+
                     await using var stream = await response.Content.ReadAsStreamAsync(_cancelTokenSource.Token);
-                    await using var fileStream = new FileStream(package.DownloadPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Delete);
+                    await using var fileStream = new FileStream(package.DownloadPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                    while (true)
+                    // Hash inline while downloading so we don't re-read the entire
+                    // package from disk afterwards just to verify the checksum.
+                    using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+
+                    byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+
+                    try
                     {
-                        if (_cancelTokenSource.IsCancellationRequested)
+                        while (true)
                         {
-                            stream.Close();
-                            fileStream.Close();
-                            return;
+                            if (_cancelTokenSource.IsCancellationRequested)
+                            {
+                                stream.Close();
+                                fileStream.Close();
+                                return;
+                            }
+
+                            int bytesRead = await stream.ReadAsync(buffer.AsMemory(0, bufferSize), _cancelTokenSource.Token);
+
+                            if (bytesRead == 0)
+                                break;
+
+                            totalBytesRead += bytesRead;
+
+                            hasher.AppendData(buffer, 0, bytesRead);
+                            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), _cancelTokenSource.Token);
+
+                            Interlocked.Add(ref _totalDownloadedBytes, bytesRead);
+
+                            // progress UI refreshes at ~10Hz, not once per chunk
+                            if (ShouldPushDownloadUi())
+                            {
+                                SetStatus(
+                                    String.Format(App.Settings.Prop.DownloadingStringFormat,
+                                    package.Name,
+                                    totalBytesRead / 1048576,
+                                    package.Size / 1048576
+                                    ));
+                                UpdateProgressBar();
+                            }
                         }
-
-                        int bytesRead = await stream.ReadAsync(buffer, _cancelTokenSource.Token);
-
-                        if (bytesRead == 0)
-                            break;
-
-                        totalBytesRead += bytesRead;
-
-                        await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), _cancelTokenSource.Token);
-
-                        _totalDownloadedBytes += bytesRead;
-                        SetStatus(
-                            String.Format(App.Settings.Prop.DownloadingStringFormat,
-                            package.Name,
-                            totalBytesRead / 1048576,
-                            package.Size / 1048576
-                            ));
-                        UpdateProgressBar();
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer);
                     }
 
-                    string hash = MD5Hash.FromStream(fileStream);
+                    await fileStream.FlushAsync(_cancelTokenSource.Token);
+
+                    string hash = MD5Hash.Stringify(hasher.GetHashAndReset());
 
                     if (hash != package.Signature)
                         throw new ChecksumFailedException($"Failed to verify download of {packageUrl}\n\nExpected hash: {package.Signature}\nGot hash: {hash}");
 
                     App.Logger.WriteLine(LOG_IDENT, $"Finished downloading! ({totalBytesRead} bytes total)");
                     break;
+                }
+                catch (OperationCanceledException) when (_cancelTokenSource.IsCancellationRequested)
+                {
+                    // user cancelled - drop the partial file and bail quietly
+                    try
+                    {
+                        if (File.Exists(package.DownloadPath))
+                            File.Delete(package.DownloadPath);
+                    }
+                    catch { }
+
+                    Interlocked.Add(ref _totalDownloadedBytes, -totalBytesRead);
+                    return;
                 }
                 catch (Exception ex)
                 {
@@ -1857,7 +2020,7 @@ namespace Bloxstrap
                     if (File.Exists(package.DownloadPath))
                         File.Delete(package.DownloadPath);
 
-                    _totalDownloadedBytes -= totalBytesRead;
+                    Interlocked.Add(ref _totalDownloadedBytes, -totalBytesRead);
                     UpdateProgressBar();
 
                     // attempt download over HTTP

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Bytestrap
+Comment=Launch Roblox with Bytestrap performance flags
+Exec=bytestrap launch
+Icon=bytestrap
+Categories=Game;
+Terminal=false
+StartupNotify=false
+Keywords=roblox;fps;gaming;

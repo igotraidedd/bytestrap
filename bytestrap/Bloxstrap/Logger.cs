@@ -1,10 +1,11 @@
-﻿namespace Bloxstrap
+namespace Bloxstrap
 {
     // https://stackoverflow.com/a/53873141/11852173
 
     public class Logger
     {
         private readonly SemaphoreSlim _semaphore = new(1, 1);
+        private readonly object _historyLock = new();
         private FileStream? _filestream;
 
         public readonly List<string> History = new();
@@ -12,7 +13,16 @@
         public bool NoWriteMode = false;
         public string? FileLocation;
 
-        public string AsDocument => String.Join('\n', History);
+        // WriteLine is called from parallel download/extract tasks, so guard the
+        // (not thread-safe) List<T> with a lock on both write and snapshot paths.
+        public string AsDocument
+        {
+            get
+            {
+                lock (_historyLock)
+                    return String.Join('\n', History);
+            }
+        }
 
         public void Initialize(bool useTempDir = false)
         {
@@ -108,7 +118,8 @@
             Debug.WriteLine(outcon);
             WriteToLog(outlog);
 
-            History.Add(outlog);
+            lock (_historyLock)
+                History.Add(outlog);
         }
 
         public void WriteLine(string identifier, string message) => WriteLine($"[{identifier}] {message}");

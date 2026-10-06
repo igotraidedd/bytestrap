@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- binary name on Linux: `bytestrap` -->
+    <AssemblyName>bytestrap</AssemblyName>
+    <RootNamespace>Bytestrap.Linux</RootNamespace>
+    <Version>3.1.0</Version>
+    <Authors>Bytestrap</Authors>
+    <Description>Bytestrap for Linux: manage Roblox fast flags / performance profiles and launch via Wine runners.</Description>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bytestrap.Core\Bytestrap.Core.csproj" />
+  </ItemGroup>
+
+</Project>

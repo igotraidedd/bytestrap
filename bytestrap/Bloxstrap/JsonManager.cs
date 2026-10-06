@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Xml.Linq;
 
@@ -24,6 +24,10 @@ namespace Bloxstrap
         public virtual string FileLocation => Path.Combine(Paths.Base, $"{ClassName}.json");
 
         public virtual string LOG_IDENT_CLASS => $"JsonManager<{ClassName}>";
+
+        // JsonSerializerOptions is expensive to construct (builds serialization
+        // metadata caches) - share one immutable instance across all saves.
+        private static readonly JsonSerializerOptions _saveOptions = new() { WriteIndented = true };
 
         public virtual void Load(bool alertFailure = true)
         {
@@ -90,7 +94,7 @@ namespace Bloxstrap
 
             try
             {
-                string contents = JsonSerializer.Serialize(Prop, new JsonSerializerOptions { WriteIndented = true });
+                string contents = JsonSerializer.Serialize(Prop, _saveOptions);
 
                 File.WriteAllText(FileLocation, contents);
 
@@ -112,10 +116,18 @@ namespace Bloxstrap
 
         /// <summary>
         /// Is the file on disk different to the one deserialised during this session?
+        /// A missing/unreadable file counts as changed (fail safe, don't throw).
         /// </summary>
         public bool HasFileOnDiskChanged()
         {
-            return LastFileHash != MD5Hash.FromFile(FileLocation);
+            try
+            {
+                return LastFileHash != MD5Hash.FromFile(FileLocation);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return true;
+            }
         }
     }
 }
